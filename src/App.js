@@ -1,24 +1,81 @@
-import logo from './logo.svg';
 import './App.css';
+import { useEffect, useState } from 'react';
+import {BrowserRouter,Routes,Route} from "react-router-dom";
+import { fetchDataFromApi } from './utils/api';
+import { useDispatch, useSelector } from 'react-redux';
+import { getApiConfiguration ,  getGenres} from './store/homeSlice';
+
+import Header from './components/header/Header';
+import Footer from './components/footer/Footer.jsx';
+import FourZeroFour from './pages/404/FourZeroFour';
+import Details from './pages/details/Details';
+import Explore from './pages/explore/Explore';
+import Home from './pages/home/Home';
+import SearchResult from './pages/searchResult/SearchResult';
 
 function App() {
+  const dispatch = useDispatch();
+  const { url } = useSelector((state) =>
+    state.home
+  )
+  console.log("url", url)
+  useEffect(() => {
+    fetchApiConfig();
+    genresCall();
+  }, [])
+
+  const fetchApiConfig = () => {
+    fetchDataFromApi("/configuration").then(async(res) => {
+      const data = await res.json();
+      console.log(data);
+
+     const url={
+      backdrop:data?.images?.secure_base_url + "original" ,
+      posture:data?.images?.secure_base_url + "original" ,
+      profile:data?.images?.secure_base_url + "original" ,
+     }
+
+      dispatch(getApiConfiguration(url));
+    })
+  }
+
+  const genresCall = async () => {
+    let promises = [];
+    let endPoints = ["tv", "movie"];
+    let allGenres = {};
+
+    endPoints.forEach( (url) => {
+      promises.push(fetchDataFromApi(`/genre/${url}/list`));
+             
+    });
+    
+
+    const data = await Promise.all(promises);
+
+const jsonDataPromises = data.map(response => response.json());
+
+const jsonDataArray = await Promise.all(jsonDataPromises);
+
+jsonDataArray.forEach(({ genres }) => {
+    genres.forEach((item) => (allGenres[item.id] = item));
+});
+   console.log(allGenres)
+    dispatch(getGenres(allGenres));
+
+
+};
   return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
+    <BrowserRouter>
+    <Header/>
+      <Routes>
+        <Route path="/" element={<Home/>}/>
+        <Route path="/:mediaType/:id" element ={<Details/>}/>
+       <Route path ="/search/:query" element={<SearchResult/>}/>
+       <Route path ="/explore/:mediaType" element={<Explore/>}/>
+       <Route path ="*" element={<FourZeroFour/>}/>
+      </Routes>
+      <Footer/>
+    </BrowserRouter>
   );
 }
 
